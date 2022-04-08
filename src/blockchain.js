@@ -1,7 +1,19 @@
+
+//#####################################################################
+//imports
 const crypto = require('crypto');
 const EC = require('elliptic').ec;
 const ec = new EC('secp256k1');
 const debug = require('debug')('savjeecoin:blockchain');
+
+const { BloomFilter } = require("bloom-filters");
+const { MerkleTree } = require("merkletreejs"); //maybe need be inside a block?
+
+const SHA256 = require('crypto-js/sha256')
+
+const numOfPendingTransactions=3;
+//#####################################################################
+//classes
 
 class Transaction {
   /**
@@ -81,6 +93,13 @@ class Block {
     this.transactions = transactions;
     this.nonce = 0;
     this.hash = this.calculateHash();
+
+    //creat the tree
+
+    this.initMerkleTree(transactions);
+    this.initBloomFilter(transactions);
+
+
   }
 
   /**
@@ -123,14 +142,37 @@ class Block {
 
     return true;
   }
+
+
+  //MerkleTree
+  initMerkleTree(transactions){
+    const leaves = transactions.map(transaction => SHA256(transaction)) //get all transactions and make them leaves of new MerkleTree
+    this.tree =new MerkleTree(leaves, SHA256) //make actual the Tree from "merkletreejs"
+    this.root = this.tree.getRoot().toString('hex') // make the roots of the tree
+  }
+
+  GetProofFromMerkleTree(transaction){
+    const leaf = SHA256(transaction)  //make leaf
+    const proof = this.tree.getProof(leaf) //
+    const theProof =this.tree.verify(proof, leaf, this.root)//true if the transaction in the block, if not return false
+  }
+
+  //BloomFilter
+  initBloomFilter(transactions){
+    // create a Bloom Filter with a size of 24 and 5 hash functions
+    this.filter = new BloomFilter(24, 5)
+    transactions.map((transaction) =>this.filter.add(transaction)) //ex filter.add(x) for all transaction
+  }
 }
 
 class Blockchain {
   constructor() {
-    this.chain = [this.createGenesisBlock()];
+    this.chain = [this.createGenesisBlock()]; //if first block=> next is the new block
     this.difficulty = 2;
     this.pendingTransactions = [];
     this.miningReward = 100;
+
+    
   }
 
   /**
@@ -158,16 +200,27 @@ class Blockchain {
    * @param {string} miningRewardAddress
    */
   minePendingTransactions(miningRewardAddress) {
-    const rewardTx = new Transaction(null, miningRewardAddress, this.miningReward);
-    this.pendingTransactions.push(rewardTx);
+    const rewardTx = new Transaction(null, miningRewardAddress, this.miningReward); //Transaction that give crypto amount of "miningReward" to the miner (miningRewardAddress)
+    this.pendingTransactions.push(rewardTx); //+all the transaction need to approval
 
-    const block = new Block(Date.now(), this.pendingTransactions, this.getLatestBlock().hash);
-    block.mineBlock(this.difficulty);
+    let transactionsToApprove=[];
+   
+    for (let i = 0; i < numOfPendingTransactions; i++) {
+      if (this.pendingTransactions[i] != undefined)
+        transactionsToApprove.push(this.pendingTransactions[i]);
+      else break;
+    }
 
-    debug('Block successfully mined!');
-    this.chain.push(block);
+   // console.log(transactionsToApprove)
+    const block = new Block(Date.now(), transactionsToApprove, this.getLatestBlock().hash);//create new blockchain
+    block.mineBlock(this.difficulty);//mined new block with the difficulty we define
 
-    this.pendingTransactions = [];
+
+    //when succeeded
+    debug('Block successfully mined!'); 
+    this.chain.push(block); //add new block to the 
+
+    this.pendingTransactions = this.pendingTransactions.slice(transactionsToApprove.length);
   }
 
   /**
@@ -306,6 +359,9 @@ class Blockchain {
   }
 }
 
+
+//#####################################################################
+//exports
 module.exports.Blockchain = Blockchain;
 module.exports.Block = Block;
 module.exports.Transaction = Transaction;

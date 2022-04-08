@@ -1,6 +1,7 @@
 const { Blockchain, Transaction } = require('./blockchain');
 const EC = require('elliptic').ec;
 const ec = new EC('secp256k1');
+const chalk =  require('chalk')
 
 // Your private key goes here
 const myKey = ec.keyFromPrivate('7c4c45907dec40c91bab3480c39032e90049f1a44f3e18c3e07c23e3273995cf');
@@ -31,11 +32,11 @@ savjeeCoin.addTransaction(tx2);
 savjeeCoin.minePendingTransactions(myWalletAddress);
 
 console.log();
-console.log(`Balance of xavier is ${savjeeCoin.getBalanceOfAddress(myWalletAddress)}`);
+console.log(chalk.underline (`Balance of xavier is ${savjeeCoin.getBalanceOfAddress(myWalletAddress)}`));
 
 // Uncomment this line if you want to test tampering with the chain
 // savjeeCoin.chain[1].transactions[0].amount = 10;
 
 // Check if the chain is valid
 console.log();
-console.log('Blockchain valid?', savjeeCoin.isChainValid() ? 'Yes' : 'No');
+console.log(chalk.bold('Blockchain valid?'), savjeeCoin.isChainValid() ? chalk.green('Yes') + "\n" : chalk.Red('No')+"\n");
