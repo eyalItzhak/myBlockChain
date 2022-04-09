@@ -10,7 +10,7 @@ const { MerkleTree } = require("merkletreejs"); //maybe need be inside a block?
 
 const SHA256 = require("crypto-js/sha256");
 
-const numOfPendingTransactions = 3;
+const numOfPendingTransactions = 4;
 
 const {Block} = require('./block')
 const {Transaction} = require('./transaction')
@@ -136,6 +136,9 @@ class Blockchain {
   
       // Making sure that the amount sent is not greater than existing balance
       const walletBalance = this.getBalanceOfAddress(transaction.fromAddress);
+      // console.log("from blockChain")
+      // console.log(transaction.amount)
+      // console.log(walletBalance)
       if (walletBalance < transaction.amount) {
         throw new Error("Not enough balance");
       }
@@ -177,7 +180,7 @@ class Blockchain {
       for (const block of this.chain) {
         for (const trans of block.transactions) {
           if (trans.fromAddress === address) {
-            balance -= trans.amount;
+            balance -= (trans.amount) ;
           }
   
           if (trans.toAddress === address) {
@@ -189,6 +192,18 @@ class Blockchain {
       debug("getBalanceOfAdrees: %s", balance);
       return balance;
     }
+
+    burnedCoins() {
+        let total = 0;
+        for (const block of this.chain) {
+          for (const trans of block.transactions) {
+            if (trans.toAddress === "CerberusSnack") {
+              total += trans.amount;
+            }
+          }
+        }
+        return total;
+      }
   
     /**
      * Returns a list of all transactions that happened

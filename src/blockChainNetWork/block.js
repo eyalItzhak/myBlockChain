@@ -28,7 +28,7 @@ class Block {
       this.transactions = transactions;
       this.nonce = 0;
       this.hash = this.calculateHash();
-  
+
       //creat the tree
   
       this.initMerkleTree(transactions);

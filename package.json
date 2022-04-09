@@ -25,7 +25,9 @@
     "chalk": "^2.4.1",
     "debug": "^4.1.1",
     "elliptic": "^6.5.4",
-    "merkletreejs": "^0.2.31"
+    "fully-connected-topology": "^1.1.1",
+    "merkletreejs": "^0.2.31",
+    "nodemon": "^2.0.15"
   },
   "devDependencies": {
     "coveralls": "^3.0.6",

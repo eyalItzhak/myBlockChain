@@ -79,6 +79,13 @@ class Transaction {
       const publicKey = ec.keyFromPublic(this.fromAddress, "hex");
       return publicKey.verify(this.calculateHash(), this.signature);
     }
+
+    setSignature(signature) {
+        this.signature = signature;
+      }
+      setDate(date) {
+        this.timestamp = date;
+      }
   }
 
   module.exports.Transaction = Transaction;
