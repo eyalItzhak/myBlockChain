@@ -40,3 +40,9 @@ console.log(chalk.underline (`Balance of xavier is ${savjeeCoin.getBalanceOfAddr
 // Check if the chain is valid
 console.log();
 console.log(chalk.bold('Blockchain valid?'), savjeeCoin.isChainValid() ? chalk.green('Yes') + "\n" : chalk.Red('No')+"\n");
+
+
+console.log();
+const noExisTran = new Transaction(myWalletAddress, 'address1', 50);
+noExisTran.signTransaction(myKey);
+console.log(savjeeCoin.searchTransaction(tx1));

@@ -1,17 +1,16 @@
-
 //#####################################################################
 //imports
-const crypto = require('crypto');
-const EC = require('elliptic').ec;
-const ec = new EC('secp256k1');
-const debug = require('debug')('savjeecoin:blockchain');
+const crypto = require("crypto");
+const EC = require("elliptic").ec;
+const ec = new EC("secp256k1");
+const debug = require("debug")("savjeecoin:blockchain");
 
 const { BloomFilter } = require("bloom-filters");
 const { MerkleTree } = require("merkletreejs"); //maybe need be inside a block?
 
-const SHA256 = require('crypto-js/sha256')
+const SHA256 = require("crypto-js/sha256");
 
-const numOfPendingTransactions=3;
+const numOfPendingTransactions = 3;
 //#####################################################################
 //classes
 
@@ -34,7 +33,10 @@ class Transaction {
    * @returns {string}
    */
   calculateHash() {
-    return crypto.createHash('sha256').update(this.fromAddress + this.toAddress + this.amount + this.timestamp).digest('hex');
+    return crypto
+      .createHash("sha256")
+      .update(this.fromAddress + this.toAddress + this.amount + this.timestamp)
+      .digest("hex");
   }
 
   /**
@@ -47,17 +49,16 @@ class Transaction {
   signTransaction(signingKey) {
     // You can only send a transaction from the wallet that is linked to your
     // key. So here we check if the fromAddress matches your publicKey
-    if (signingKey.getPublic('hex') !== this.fromAddress) {
-      throw new Error('You cannot sign transactions for other wallets!');
+    if (signingKey.getPublic("hex") !== this.fromAddress) {
+      throw new Error("You cannot sign transactions for other wallets!");
     }
-    
 
     // Calculate the hash of this transaction, sign it with the key
     // and store it inside the transaction obect
     const hashTx = this.calculateHash();
-    const sig = signingKey.sign(hashTx, 'base64');
+    const sig = signingKey.sign(hashTx, "base64");
 
-    this.signature = sig.toDER('hex');
+    this.signature = sig.toDER("hex");
   }
 
   /**
@@ -73,10 +74,10 @@ class Transaction {
     if (this.fromAddress === null) return true;
 
     if (!this.signature || this.signature.length === 0) {
-      throw new Error('No signature in this transaction');
+      throw new Error("No signature in this transaction");
     }
 
-    const publicKey = ec.keyFromPublic(this.fromAddress, 'hex');
+    const publicKey = ec.keyFromPublic(this.fromAddress, "hex");
     return publicKey.verify(this.calculateHash(), this.signature);
   }
 }
@@ -87,7 +88,7 @@ class Block {
    * @param {Transaction[]} transactions
    * @param {string} previousHash
    */
-  constructor(timestamp, transactions, previousHash = '') {
+  constructor(timestamp, transactions, previousHash = "") {
     this.previousHash = previousHash;
     this.timestamp = timestamp;
     this.transactions = transactions;
@@ -98,8 +99,6 @@ class Block {
 
     this.initMerkleTree(transactions);
     this.initBloomFilter(transactions);
-
-
   }
 
   /**
@@ -109,7 +108,15 @@ class Block {
    * @returns {string}
    */
   calculateHash() {
-    return crypto.createHash('sha256').update(this.previousHash + this.timestamp + JSON.stringify(this.transactions) + this.nonce).digest('hex');
+    return crypto
+      .createHash("sha256")
+      .update(
+        this.previousHash +
+          this.timestamp +
+          JSON.stringify(this.transactions) +
+          this.nonce
+      )
+      .digest("hex");
   }
 
   /**
@@ -119,7 +126,9 @@ class Block {
    * @param {number} difficulty
    */
   mineBlock(difficulty) {
-    while (this.hash.substring(0, difficulty) !== Array(difficulty + 1).join('0')) {
+    while (
+      this.hash.substring(0, difficulty) !== Array(difficulty + 1).join("0")
+    ) {
       this.nonce++;
       this.hash = this.calculateHash();
     }
@@ -143,25 +152,40 @@ class Block {
     return true;
   }
 
-
   //MerkleTree
-  initMerkleTree(transactions){
-    const leaves = transactions.map(transaction => SHA256(transaction)) //get all transactions and make them leaves of new MerkleTree
-    this.tree =new MerkleTree(leaves, SHA256) //make actual the Tree from "merkletreejs"
-    this.root = this.tree.getRoot().toString('hex') // make the roots of the tree
-  }
-
-  GetProofFromMerkleTree(transaction){
-    const leaf = SHA256(transaction)  //make leaf
-    const proof = this.tree.getProof(leaf) //
-    const theProof =this.tree.verify(proof, leaf, this.root)//true if the transaction in the block, if not return false
+  initMerkleTree(transactions) {
+    const leaves = transactions.map((transaction) =>
+      SHA256(transaction.signature)
+    ); //get all transactions and make them leaves of new MerkleTree //if undefined its do noting?
+    this.tree = new MerkleTree(leaves, SHA256); //make actual the Tree from "merkletreejs"
+    this.root = this.tree.getRoot().toString("hex"); // make the roots of the tree
   }
 
   //BloomFilter
-  initBloomFilter(transactions){
+  initBloomFilter(transactions) {
     // create a Bloom Filter with a size of 24 and 5 hash functions
-    this.filter = new BloomFilter(24, 5)
-    transactions.map((transaction) =>this.filter.add(transaction)) //ex filter.add(x) for all transaction
+    this.filter = new BloomFilter(32, 4);
+    for (const tx of transactions) {
+      if (tx.fromAddress != null) this.filter.add(tx.signature);
+    }
+  }
+
+  BloomFilterSerch(signature) {
+    return this.filter.has(signature);
+  }
+
+  GetProofFromMerkleTree(signature) {
+    const leaf = SHA256(signature); //make leaf
+    const proof = this.tree.getProof(leaf); //
+    return this.tree.verify(proof, leaf, this.root); //true if the transaction in the block, if not return false
+  }
+
+  cheakIfTransactionInBlock(signature) {
+    if (this.BloomFilterSerch(signature)) {
+      return this.GetProofFromMerkleTree(signature);
+    } else {
+      false;
+    }
   }
 }
 
@@ -171,15 +195,37 @@ class Blockchain {
     this.difficulty = 2;
     this.pendingTransactions = [];
     this.miningReward = 100;
-
-    
+    this.initBloomFilter();
   }
 
   /**
    * @returns {Block}
    */
   createGenesisBlock() {
-    return new Block(Date.parse('2017-01-01'), [], '0');
+    return new Block(Date.parse("2017-01-01"), [], "0");
+  }
+
+  //BloomFilter =>for fast Search in all the blocks
+  initBloomFilter() {
+    this.filter = new BloomFilter(64, 5);
+  }
+  //BloomFilter search
+  BloomFilterSerch(signature) {
+    return this.filter.has(signature);
+  }
+
+  searchTransaction(transaction) {
+    const signature = transaction.signature;
+    if (this.BloomFilterSerch(signature)) {
+      for (const block of this.chain) {
+        if (block.cheakIfTransactionInBlock(signature)) {
+          return true;
+        }
+      }
+      return false;
+    } else {
+      return false;
+    }
   }
 
   /**
@@ -200,27 +246,42 @@ class Blockchain {
    * @param {string} miningRewardAddress
    */
   minePendingTransactions(miningRewardAddress) {
-    const rewardTx = new Transaction(null, miningRewardAddress, this.miningReward); //Transaction that give crypto amount of "miningReward" to the miner (miningRewardAddress)
+    const rewardTx = new Transaction(
+      null,
+      miningRewardAddress,
+      this.miningReward
+    ); //Transaction that give crypto amount of "miningReward" to the miner (miningRewardAddress)
     this.pendingTransactions.push(rewardTx); //+all the transaction need to approval
 
-    let transactionsToApprove=[];
-   
+    let transactionsToApprove = [];
+
     for (let i = 0; i < numOfPendingTransactions; i++) {
       if (this.pendingTransactions[i] != undefined)
         transactionsToApprove.push(this.pendingTransactions[i]);
       else break;
     }
 
-   // console.log(transactionsToApprove)
-    const block = new Block(Date.now(), transactionsToApprove, this.getLatestBlock().hash);//create new blockchain
-    block.mineBlock(this.difficulty);//mined new block with the difficulty we define
-
+    // console.log(transactionsToApprove)
+    const block = new Block(
+      Date.now(),
+      transactionsToApprove,
+      this.getLatestBlock().hash
+    ); //create new blockchain
+    block.mineBlock(this.difficulty); //mined new block with the difficulty we define
 
     //when succeeded
-    debug('Block successfully mined!'); 
-    this.chain.push(block); //add new block to the 
+    debug("Block successfully mined!");
+    this.chain.push(block); //add new block to the
+    this.addTransactionsToBloomFilter(transactionsToApprove);
+    this.pendingTransactions = this.pendingTransactions.slice(
+      transactionsToApprove.length
+    );
+  }
 
-    this.pendingTransactions = this.pendingTransactions.slice(transactionsToApprove.length);
+  addTransactionsToBloomFilter(transactions) {
+    const popped = transactions.pop();
+    transactions.map((transaction) => this.filter.add(transaction.signature)); //ex filter.add(x) for all transaction
+    transactions.push(popped);
   }
 
   /**
@@ -232,45 +293,47 @@ class Blockchain {
    */
   addTransaction(transaction) {
     if (!transaction.fromAddress || !transaction.toAddress) {
-      throw new Error('Transaction must include from and to address');
+      throw new Error("Transaction must include from and to address");
     }
 
     // Verify the transactiion
     if (!transaction.isValid()) {
-      throw new Error('Cannot add invalid transaction to chain');
+      throw new Error("Cannot add invalid transaction to chain");
     }
-    
+
     if (transaction.amount <= 0) {
-      throw new Error('Transaction amount should be higher than 0');
+      throw new Error("Transaction amount should be higher than 0");
     }
-    
+
     // Making sure that the amount sent is not greater than existing balance
     const walletBalance = this.getBalanceOfAddress(transaction.fromAddress);
     if (walletBalance < transaction.amount) {
-      throw new Error('Not enough balance');
+      throw new Error("Not enough balance");
     }
 
     // Get all other pending transactions for the "from" wallet
-    const pendingTxForWallet = this.pendingTransactions
-      .filter(tx => tx.fromAddress === transaction.fromAddress);
+    const pendingTxForWallet = this.pendingTransactions.filter(
+      (tx) => tx.fromAddress === transaction.fromAddress
+    );
 
     // If the wallet has more pending transactions, calculate the total amount
     // of spend coins so far. If this exceeds the balance, we refuse to add this
     // transaction.
     if (pendingTxForWallet.length > 0) {
       const totalPendingAmount = pendingTxForWallet
-        .map(tx => tx.amount)
+        .map((tx) => tx.amount)
         .reduce((prev, curr) => prev + curr);
 
       const totalAmount = totalPendingAmount + transaction.amount;
       if (totalAmount > walletBalance) {
-        throw new Error('Pending transactions for this wallet is higher than its balance.');
+        throw new Error(
+          "Pending transactions for this wallet is higher than its balance."
+        );
       }
     }
-                                    
 
     this.pendingTransactions.push(transaction);
-    debug('transaction added: %s', transaction);
+    debug("transaction added: %s", transaction);
   }
 
   /**
@@ -294,7 +357,7 @@ class Blockchain {
       }
     }
 
-    debug('getBalanceOfAdrees: %s', balance);
+    debug("getBalanceOfAdrees: %s", balance);
     return balance;
   }
 
@@ -316,7 +379,7 @@ class Blockchain {
       }
     }
 
-    debug('get transactions for wallet count: %s', txs.length);
+    debug("get transactions for wallet count: %s", txs.length);
     return txs;
   }
 
@@ -358,7 +421,6 @@ class Blockchain {
     return true;
   }
 }
-
 
 //#####################################################################
 //exports
