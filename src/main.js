@@ -1,4 +1,5 @@
-const { Blockchain, Transaction } = require('./blockchain');
+const {Transaction } = require('./blockChainNetWork/Transaction');
+const {Blockchain} = require ('./blockChainNetWork/BlockChain')
 const EC = require('elliptic').ec;
 const ec = new EC('secp256k1');
 const chalk =  require('chalk')
@@ -45,4 +46,4 @@ console.log(chalk.bold('Blockchain valid?'), savjeeCoin.isChainValid() ? chalk.g
 console.log();
 const noExisTran = new Transaction(myWalletAddress, 'address1', 50);
 noExisTran.signTransaction(myKey);
-console.log(savjeeCoin.searchTransaction(tx1));
+console.log(savjeeCoin.searchTransaction(noExisTran));
