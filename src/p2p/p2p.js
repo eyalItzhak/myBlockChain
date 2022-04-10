@@ -63,6 +63,16 @@ topology(myIp, peerIps).on("connection", (socket, peerIp) => {
       exit(0);
     }
 
+
+    if(((myPort==="4000")&&(peerPort==="4001"))||(myPort!=="4000")&&(peerPort==="4000")){
+      if(message==="proof"){
+      const proofSent="getMyProof: "+Reception+" "+myPort
+    //  console.log(proofSent)
+      sockets["4000"].write(proofSent)
+    }
+    }
+    
+
     const receiverPeer = extractReceiverPeer(message);
     if (sockets[receiverPeer]) {
       //message to specific peer (if we sent money to someone....)
@@ -132,16 +142,30 @@ function minerGetDataHandler(message, data) {
       });
     }
   }else {
+    const splitWord = message.split(' ')
+   
+    if(splitWord[0]==="getMyProof:"){
+      const proof= splitWord[1]
+      const yourProof= "yourProofFromMiner "+blockChain.searchTransaction(proof)
+      const receiverPeer=splitWord[2]
+    //  console.log(yourProof+"######################" +receiverPeer)
+      
+      sockets[receiverPeer].write(yourProof);
+    }
     walletGetDataHandler(data)
   }
 }
 
 function walletGetDataHandler(data) {
   massage=data.toString("utf8")
-  const first = massage.split(' ')
-  if(first[0]==="proof:"){
+  const splitWord = massage.split(' ')
+
+
+  if(splitWord[0]==="proof:"){
     log("get reception")
-    Reception=first[1]
+    Reception=splitWord[1]
+  } else if(splitWord[0]==="yourProofFromMiner"){
+        console.log("your approva "+splitWord[1])
   }else{
     log(data.toString("utf8"));
   }
