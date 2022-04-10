@@ -23,7 +23,7 @@ class Blockchain {
       this.chain = [this.createGenesisBlock()]; //if first block=> next is the new block
       this.difficulty = 2;
       this.pendingTransactions = [];
-      this.miningReward = 100;
+      this.miningReward = 20;
       this.initBloomFilter();
     }
   
@@ -204,6 +204,18 @@ class Blockchain {
         for (const block of this.chain) {
           for (const trans of block.transactions) {
             if (trans.toAddress === "CerberusSnack") {
+              total += trans.amount;
+            }
+          }
+        }
+        return total;
+      }
+
+      minedCoins() {
+        let total = 0;
+        for (const block of this.chain) {
+          for (const trans of block.transactions) {
+            if (trans.fromAddress === null) {
               total += trans.amount;
             }
           }

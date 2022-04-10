@@ -17,7 +17,7 @@ const savjeeCoin = new Blockchain();
 savjeeCoin.minePendingTransactions(myWalletAddress);
 
 // Create a transaction & sign it with your key
-const tx1 = new Transaction(myWalletAddress, 'address2', 100);
+const tx1 = new Transaction(myWalletAddress, 'address2', 50);
 tx1.signTransaction(myKey);
 savjeeCoin.addTransaction(tx1);
 
