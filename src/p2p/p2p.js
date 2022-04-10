@@ -32,78 +32,31 @@ let doOnce = true;
 
 let Reception;
 // Init private keys for all nodes
-//##############################!dummey private Key!##############################
 let nodePrivateKeys = CreateDammyMap();
-//################################################################################
+
 //connect to peers
+
 topology(myIp, peerIps).on("connection", (socket, peerIp) => {
   const myPort = extractPortFromIp(myIp);
   const peerPort = extractPortFromIp(peerIp);
-
   const myKey = ec.keyFromPrivate(nodePrivateKeys.get(myPort));
   const myWalletAddress = myKey.getPublic("hex");
-
   log("connected to peer - ", peerPort);
   sockets[peerPort] = socket;
 
   if (doOnce && myPort == "4000") {
-    //for some money
     for (let index = 0; index < 100; index++) {
       blockChain.minePendingTransactions(myWalletAddress);
     }
   }
 
-  //####################what to do when user put input###############################
+  //what to do when user put input
   stdin.on("data", (data) => {
-    //on user input
-    const message = data.toString().trim();
-    if (message === "exit") {
-      //on exit
-      log("Bye bye");
-      exit(0);
-    }
-
-
-    if(((myPort==="4000")&&(peerPort==="4001"))||(myPort!=="4000")&&(peerPort==="4000")){
-      if(message==="proof"){
-      
-        if(myPort!="4000"){
-          const proofSent="getMyProof: "+Reception+" "+myPort
-          sockets["4000"].write(proofSent)
-        }else{
-          console.log("your proof :"+blockChain.searchTransaction(Reception))
-        }
-      
-    }
-    }
-    
-
-    const receiverPeer = extractReceiverPeer(message);
-    if (sockets[receiverPeer]) {
-      //message to specific peer (if we sent money to someone....)
-      if (peerPort === receiverPeer) {
-        addTransactionToBlockChain(
-          myPort,
-          message,
-          myWalletAddress,
-          receiverPeer,
-          myKey
-        ); //my port (how sent), message (info of the transaction),myWalletAddress(from how) , to-port(need to change),myKey(to seal the transaction)
-      }
-    } else {
-      // the miner mining...
-      if ((myPort == 4000) & (peerPort == 4001)) {
-        //(only runs one! )we need to run this on one port
-        minerCommandHandler(message, myWalletAddress); //need his wallet if command is mine
-      }
-    }
+    UserInputHandler(data, myPort, peerPort, myWalletAddress, myKey);
   });
 
-  //####################what to do when Get data!###############################
-  //print data when received
   socket.on("data", (data) => {
-    //2 Case... need to unload data from wallet and add to blockChian or need to update wallet of the transaction
-    const message = data.toString().trim();
+    const message = data.toString().trim(); //2 Case... need to unload data from wallet and add to blockChian or need to update wallet of the transaction
     if (myPort == "4000") {
       //if its miner
       minerGetDataHandler(message, data);
@@ -116,11 +69,88 @@ topology(myIp, peerIps).on("connection", (socket, peerIp) => {
 
 //#####################################################################################################################################################################
 //#####################################################################################################################################################################
-function minerGetDataHandler(message, data) {
-  //const message = data.toString().trim();
-  if (message.startsWith("{") || message.startsWith("[")) {
-    //if jason
-    const parsedData = JSON.parse(data); //unload data
+
+function UserInputHandler(data, myPort, peerPort, myWalletAddress, myKey) {
+  //user and miner command
+  const message = data.toString().trim();
+  if (message === "exit") {
+    //on exit
+    log("Bye bye");
+    exit(0);
+  }
+
+  if (
+    (myPort === "4000" && peerPort === "4001") ||
+    (myPort !== "4000" && peerPort === "4000")
+  ) {
+    if (message === "proof") {
+      userAskForPoof(myPort);
+    }
+  }
+
+  // if massage stat with port
+  const receiverPeer = extractReceiverPeer(message);
+  if (sockets[receiverPeer]) {
+    if (peerPort === receiverPeer) {
+      addTransactionToBlockChain(
+        myPort,
+        message,
+        myWalletAddress,
+        receiverPeer,
+        myKey
+      ); //my port (how sent), message (info of the transaction),myWalletAddress(from how) , to-port(need to change),myKey(to seal the transaction)
+    }
+  } else {
+    // the miner mining...
+    if ((myPort == 4000) & (peerPort == 4001)) {
+      //(only runs one! )we need to run this on one port
+      minerCommandHandler(message, myWalletAddress); //need his wallet if command is mine
+    }
+  }
+}
+
+function userAskForPoof(myPort) {
+  if (myPort != "4000") {
+    const proofSent = "getMyProof: " + Reception + " " + myPort;
+    sockets["4000"].write(proofSent);
+  } else {
+    if (Reception) {
+      console.log("your proof :" + blockChain.searchTransaction(Reception));
+    } else {
+      console.log("your proof is not exist");
+    }
+  }
+}
+
+function minerGetDataHandler(message, data) { 
+  //if gate jason file
+  if (message.startsWith("{") || message.startsWith("[")) { 
+    const dataFrom=unloadTransactionsFromJSON(data);
+    transactionArr=dataFrom[0];
+    totalAmountForTnx=dataFrom[1]
+     //check if also can pay fee
+    if (checkIfCanAllowTransactions(transactionArr, transactionArr[0].fromAddress) ) {
+      transactionArr.forEach((transaction) => {
+        try {
+          blockChain.addTransaction(transaction);
+        } catch (error) {
+          console.log("Something is wrong with the deal");
+        }
+      });
+    }
+     //to do add else handler...
+  } else {
+    const splitWord = message.split(" ");
+    if (splitWord[0] === "getMyProof:") {
+      sentProofHandler(splitWord);
+    } else {
+      walletGetDataHandler(data);
+    }
+  }
+}
+
+function unloadTransactionsFromJSON(data){
+  const parsedData = JSON.parse(data); //unload data
     let transactionArr = [];
     let totalAmountForTnx = 0;
     parsedData.forEach((txn) => {
@@ -134,47 +164,28 @@ function minerGetDataHandler(message, data) {
       transactionArr.push(transaction);
       totalAmountForTnx += parseInt(txn.amount);
     });
+    return [transactionArr,totalAmountForTnx]
+}
 
-    if ( checkIfCanAllowTransactions(transactionArr, transactionArr[0].fromAddress) ) {
-      transactionArr.forEach((transaction) => {
-        try {
-          blockChain.addTransaction(transaction);
-        } catch (error) {
-          console.log("Something is wrong with the deal");
-        }
-      });
-    }
-  }else {
-    const splitWord = message.split(' ')
-    if(splitWord[0]==="getMyProof:"){
-      const proof= splitWord[1]
-      const yourProof= "yourProofFromMiner "+blockChain.searchTransaction(proof)
-      const receiverPeer=splitWord[2]
-      
-      sockets[receiverPeer].write(yourProof);
-    }else{
-      walletGetDataHandler(data)
-    }
-    
-  }
+function sentProofHandler(splitWord){
+  const proof = splitWord[1];
+  const yourProof =
+  "yourProofFromMiner " + blockChain.searchTransaction(proof);
+  const receiverPeer = splitWord[2];
+  sockets[receiverPeer].write(yourProof);
 }
 
 function walletGetDataHandler(data) {
-  massage=data.toString("utf8")
-  const splitWord = massage.split(' ')
-
-
-  if(splitWord[0]==="proof:"){
-    log("get reception")
-    Reception=splitWord[1]
-  } else if(splitWord[0]==="yourProofFromMiner"){
-        console.log("your approva "+splitWord[1])
-  }else{
+  massage = data.toString("utf8");
+  const splitWord = massage.split(" ");
+  if (splitWord[0] === "proof:") {
+    log("get reception");
+    Reception = splitWord[1];
+  } else if (splitWord[0] === "yourProofFromMiner") {
+    console.log("your approva " + splitWord[1]);
+  } else {
     log(data.toString("utf8"));
   }
-  
-
-  
 }
 
 function checkIfCanAllowTransactions(transactions, fromAddress) {
@@ -203,8 +214,39 @@ function addTransactionToBlockChain(
   log(
     `You have paid a total of ${totalAmount} on this transaction burnFee=${transFEE} minerFee=${minerFee}`
   );
-  
+
   //now we need to creat the transaction and sent them to the miner...
+
+  const trans = createFeeTransactions(receiverPeer,myWalletAddress,amount,transFEE,minerFee,myKey);
+  const transaction= trans[0]
+  const CerberusTransaction= trans[1]
+  const feeTransaction= trans[2]
+  
+  sockets[receiverPeer].write(formatMessage(amount, me));
+
+  function myFunc() {
+    sockets[receiverPeer].write("proof: " + transaction.signature);
+  }
+  setTimeout(myFunc, 500, "");
+
+  //and sent them to the miner...
+  if (myPort != 4000) {
+    //miner on port 4000 so if the miner need to make transaction he cant sent the info of this transaction to herself so we handle this case late...
+    let arr = [];
+    arr.push(transaction);
+    arr.push(CerberusTransaction);
+    arr.push(feeTransaction);
+    sockets[4000].write(JSON.stringify(arr));
+  } else {
+    //now we handle the other case...
+    blockChain.addTransaction(transaction);
+    blockChain.addTransaction(CerberusTransaction);
+    blockChain.addTransaction(feeTransaction);
+  }
+}
+
+
+function createFeeTransactions(receiverPeer,myWalletAddress,amount,transFEE,minerFee,myKey){
   const sentToAddress = ec
     .keyFromPrivate(nodePrivateKeys.get(receiverPeer))
     .getPublic("hex");
@@ -232,29 +274,7 @@ function addTransactionToBlockChain(
   CerberusTransaction.signTransaction(myKey);
   feeTransaction.signTransaction(myKey);
 
- 
-  sockets[receiverPeer].write(formatMessage(amount, me));
-
-  function myFunc() {
-  sockets[receiverPeer].write("proof: "+transaction.signature)
-  }
-  setTimeout(myFunc,500,"")
- 
-
-  //and sent them to the miner...
-  if (myPort != 4000) {
-    //miner on port 4000 so if the miner need to make transaction he cant sent the info of this transaction to herself so we handle this case late...
-    let arr = [];
-    arr.push(transaction);
-    arr.push(CerberusTransaction);
-    arr.push(feeTransaction);
-    sockets[4000].write(JSON.stringify(arr));
-  } else {
-    //now we handle the other case...
-    blockChain.addTransaction(transaction);
-    blockChain.addTransaction(CerberusTransaction);
-    blockChain.addTransaction(feeTransaction);
-  }
+  return [transaction,CerberusTransaction,feeTransaction]
 }
 
 function CreateDammyMap() {
