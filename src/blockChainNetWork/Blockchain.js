@@ -112,9 +112,7 @@ class Blockchain {
     }
   
     addTransactionsToBloomFilter(transactions) {
-     // console.log(transactions)
       const popped = transactions.pop();
-      //transactions.map((transaction) => this.filter.add(transaction.signature)); //ex filter.add(x) for all transaction
       for (let transaction of transactions ) {
         if(transaction.signature){
           this.filter.add(transaction.signature); //ex filter.add(x) for all transaction
