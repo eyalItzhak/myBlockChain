@@ -13,14 +13,11 @@ const { Transaction } = require("../blockChainNetWork/Transaction");
 const { Blockchain } = require("../blockChainNetWork/BlockChain");
 const EC = require("elliptic").ec;
 const ec = new EC("secp256k1");
-
 const { stdin, exit, argv } = process;
 const { log } = console;
 const { me, peers } = extractPeersAndMyPort(argv);
 const sockets = {};
 const blockChain = new Blockchain();
-
-
 
 //####################################################################################################################
 log("---------------------");
@@ -33,6 +30,7 @@ const peerIps = getPeerIps(peers);
 
 let doOnce = true;
 
+let Reception;
 // Init private keys for all nodes
 //##############################!dummey private Key!##############################
 let nodePrivateKeys = CreateDammyMap();
@@ -55,7 +53,7 @@ topology(myIp, peerIps).on("connection", (socket, peerIp) => {
     }
   }
 
-  //##what to do when user put input
+  //####################what to do when user put input###############################
   stdin.on("data", (data) => {
     //on user input
     const message = data.toString().trim();
@@ -86,27 +84,27 @@ topology(myIp, peerIps).on("connection", (socket, peerIp) => {
     }
   });
 
-  //##what to do when Get data!
+  //####################what to do when Get data!###############################
   //print data when received
   socket.on("data", (data) => {
     //2 Case... need to unload data from wallet and add to blockChian or need to update wallet of the transaction
     const message = data.toString().trim();
-    if (peerPort == "4002" && myPort == "4000") {
-      addAndValidateTransactions(message, data);
-    } else if (peerPort == "4001" && myPort == "4000") {
-      addAndValidateTransactions(message, data);
+    if (myPort == "4000") {
+      //if its miner
+      minerGetDataHandler(message, data);
     } else {
-      //if its not the miner
-      log(data.toString("utf8"));
+      //if its wallet
+      walletGetDataHandler(data);
     }
   });
 });
 
 //#####################################################################################################################################################################
 //#####################################################################################################################################################################
-function addAndValidateTransactions(message, data) {
+function minerGetDataHandler(message, data) {
   //const message = data.toString().trim();
   if (message.startsWith("{") || message.startsWith("[")) {
+    //if jason
     const parsedData = JSON.parse(data); //unload data
     let transactionArr = [];
     let totalAmountForTnx = 0;
@@ -133,9 +131,23 @@ function addAndValidateTransactions(message, data) {
         }
       });
     }
-  } else {
+  }else {
+    walletGetDataHandler(data)
+  }
+}
+
+function walletGetDataHandler(data) {
+  massage=data.toString("utf8")
+  const first = massage.split(' ')
+  if(first[0]==="proof:"){
+    log("get reception")
+    Reception=first[1]
+  }else{
     log(data.toString("utf8"));
   }
+  
+
+  
 }
 
 function checkIfCanAllowTransactions(transactions, fromAddress) {
@@ -166,11 +178,8 @@ function addTransactionToBlockChain(
   log(
     `You have paid a total of ${totalAmount} on this transaction burnFee=${transFEE} minerFee=${minerFee}`
   );
-  sockets[receiverPeer].write(formatMessage(amount, me));
-
+  
   //now we need to creat the transaction and sent them to the miner...
-  console.log(receiverPeer);
-
   const sentToAddress = ec
     .keyFromPrivate(nodePrivateKeys.get(receiverPeer))
     .getPublic("hex");
@@ -197,6 +206,16 @@ function addTransactionToBlockChain(
   transaction.signTransaction(myKey);
   CerberusTransaction.signTransaction(myKey);
   feeTransaction.signTransaction(myKey);
+
+ 
+  sockets[receiverPeer].write(formatMessage(amount, me));
+
+  function myFunc() {
+  sockets[receiverPeer].write("proof: "+transaction.signature)
+  }
+  setTimeout(myFunc,500,"")
+ 
+
   //and sent them to the miner...
   if (myPort != 4000) {
     //miner on port 4000 so if the miner need to make transaction he cant sent the info of this transaction to herself so we handle this case late...
