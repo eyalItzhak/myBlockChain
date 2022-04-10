@@ -91,7 +91,6 @@ class Blockchain {
       }
       transactionsToApprove.push(rewardTx);
   
-      // console.log(transactionsToApprove)
       const block = new Block(
         Date.now(),
         transactionsToApprove,
@@ -108,7 +107,7 @@ class Blockchain {
       this.addTransactionsToBloomFilter(transactionsToApprove);
 
       this.pendingTransactions = this.pendingTransactions.slice(
-        transactionsToApprove.length
+        numOfPendingTransactions
       );
     }
   
@@ -146,9 +145,6 @@ class Blockchain {
   
       // Making sure that the amount sent is not greater than existing balance
       const walletBalance = this.getBalanceOfAddress(transaction.fromAddress);
-      // console.log("from blockChain")
-      // console.log(transaction.amount)
-      // console.log(walletBalance)
       if (walletBalance < transaction.amount) {
         throw new Error("Not enough balance");
       }

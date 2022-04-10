@@ -66,9 +66,14 @@ topology(myIp, peerIps).on("connection", (socket, peerIp) => {
 
     if(((myPort==="4000")&&(peerPort==="4001"))||(myPort!=="4000")&&(peerPort==="4000")){
       if(message==="proof"){
-      const proofSent="getMyProof: "+Reception+" "+myPort
-    //  console.log(proofSent)
-      sockets["4000"].write(proofSent)
+      
+        if(myPort!="4000"){
+          const proofSent="getMyProof: "+Reception+" "+myPort
+          sockets["4000"].write(proofSent)
+        }else{
+          console.log("your proof :"+blockChain.searchTransaction(Reception))
+        }
+      
     }
     }
     
@@ -130,9 +135,7 @@ function minerGetDataHandler(message, data) {
       totalAmountForTnx += parseInt(txn.amount);
     });
 
-    if (
-      checkIfCanAllowTransactions(transactionArr, transactionArr[0].fromAddress)
-    ) {
+    if ( checkIfCanAllowTransactions(transactionArr, transactionArr[0].fromAddress) ) {
       transactionArr.forEach((transaction) => {
         try {
           blockChain.addTransaction(transaction);
@@ -143,16 +146,16 @@ function minerGetDataHandler(message, data) {
     }
   }else {
     const splitWord = message.split(' ')
-   
     if(splitWord[0]==="getMyProof:"){
       const proof= splitWord[1]
       const yourProof= "yourProofFromMiner "+blockChain.searchTransaction(proof)
       const receiverPeer=splitWord[2]
-    //  console.log(yourProof+"######################" +receiverPeer)
       
       sockets[receiverPeer].write(yourProof);
+    }else{
+      walletGetDataHandler(data)
     }
-    walletGetDataHandler(data)
+    
   }
 }
 
@@ -180,8 +183,6 @@ function checkIfCanAllowTransactions(transactions, fromAddress) {
   for (const transaction of transactions) {
     ToPay = ToPay + transaction.amount;
   }
-  // console.log(balance);
-  // console.log(ToPay);
   return balance >= ToPay;
 }
 
