@@ -20,6 +20,8 @@ const { me, peers } = extractPeersAndMyPort(argv);
 const sockets = {};
 const blockChain = new Blockchain();
 
+
+
 //####################################################################################################################
 log("---------------------");
 log("me - ", me);
@@ -120,12 +122,31 @@ function addAndValidateTransactions(message, data) {
       totalAmountForTnx += parseInt(txn.amount);
     });
 
-    transactionArr.forEach((transaction) => {
-      blockChain.addTransaction(transaction);
-    });
+    if (
+      checkIfCanAllowTransactions(transactionArr, transactionArr[0].fromAddress)
+    ) {
+      transactionArr.forEach((transaction) => {
+        try {
+          blockChain.addTransaction(transaction);
+        } catch (error) {
+          console.log("Something is wrong with the deal");
+        }
+      });
+    }
   } else {
     log(data.toString("utf8"));
   }
+}
+
+function checkIfCanAllowTransactions(transactions, fromAddress) {
+  const balance = blockChain.getBalanceOfAddress(fromAddress);
+  let ToPay = 0;
+  for (const transaction of transactions) {
+    ToPay = ToPay + transaction.amount;
+  }
+  // console.log(balance);
+  // console.log(ToPay);
+  return balance >= ToPay;
 }
 
 function addTransactionToBlockChain(
@@ -136,7 +157,7 @@ function addTransactionToBlockChain(
   myKey
 ) {
   //write only once
-  amount = extractMessageToSpecificPeer(message);
+  const amount = extractMessageToSpecificPeer(message);
   const transFEE = Math.floor(Math.random() * 4 + 4);
   const minerFee = 1;
   const totalAmount =
@@ -153,8 +174,6 @@ function addTransactionToBlockChain(
   const sentToAddress = ec
     .keyFromPrivate(nodePrivateKeys.get(receiverPeer))
     .getPublic("hex");
-
-  //console.log("the adress!!!!: "+sentToAddress)//##########################################
 
   const mineAddress = ec
     .keyFromPrivate(nodePrivateKeys.get("4000"))

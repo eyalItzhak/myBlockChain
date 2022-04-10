@@ -10,7 +10,7 @@ const { MerkleTree } = require("merkletreejs"); //maybe need be inside a block?
 
 const SHA256 = require("crypto-js/sha256");
 
-const numOfPendingTransactions = 4;
+const numOfPendingTransactions = 3;
 
 const {Block} = require('./block')
 const {Transaction} = require('./transaction')
@@ -43,8 +43,8 @@ class Blockchain {
       return this.filter.has(signature);
     }
   
-    searchTransaction(transaction) {
-      const signature = transaction.signature;
+    searchTransaction(signature) { 
+      //const signature = transaction.signature;
       if (this.BloomFilterSerch(signature)) {
         for (const block of this.chain) {
           if (block.cheakIfTransactionInBlock(signature)) {
@@ -80,7 +80,7 @@ class Blockchain {
         miningRewardAddress,
         this.miningReward
       ); //Transaction that give crypto amount of "miningReward" to the miner (miningRewardAddress)
-      this.pendingTransactions.push(rewardTx); //+all the transaction need to approval
+      //this.pendingTransactions.push(rewardTx); //+all the transaction need to approval
   
       let transactionsToApprove = [];
   
@@ -89,6 +89,7 @@ class Blockchain {
           transactionsToApprove.push(this.pendingTransactions[i]);
         else break;
       }
+      transactionsToApprove.push(rewardTx);
   
       // console.log(transactionsToApprove)
       const block = new Block(
