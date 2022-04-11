@@ -50,6 +50,7 @@ topology(myIp, peerIps).on("connection", (socket, peerIp) => {
     for (let index = 0; index < 50; index++) {
       blockChain.minePendingTransactions(myWalletAddress);
     }
+   // autoMine(myWalletAddress);
     loadTransactionFromMemePoll(myWalletAddress);
     doOnce = true;
   }
@@ -129,7 +130,7 @@ function UserInputHandler(data, myPort, peerPort, myWalletAddress, myKey) {
 
     if ((myPort == 4000) & (peerPort == 4001)) {
       //(only runs one! )we need to run this on one port
-      minerCommandHandler(message, myWalletAddress); //need his wallet if command is mine
+      minerCommandHandler(message, myWalletAddress,peerPort); //need his wallet if command is mine
     }
   }
 }
@@ -233,9 +234,10 @@ function userAskForPoof(myPort) {
     sockets["4000"].write(proofSent);
   } else {
     if (Reception) {
-      console.log("your proof :" + blockChain.searchTransaction(Reception));
+      //console.log("your proof :" + blockChain.searchTransaction(Reception));
+      approval(blockChain.searchTransaction(Reception) + "");
     } else {
-      console.log("your proof is not exist");
+      approval("");
     }
   }
 }
@@ -271,7 +273,8 @@ function walletGetDataHandler(data) {
     log(chalk.underline.green("you got a reception!"));
     Reception = splitWord[1];
   } else if (splitWord[0] === "yourProofFromMiner") {
-    console.log("your approva " + splitWord[1]);
+    // console.log("your approva " + splitWord[1]);
+    approval(splitWord[1]);
   } else {
     log(data.toString("utf8"));
   }
@@ -341,7 +344,7 @@ function CreateDammyMap() {
   return nodePrivateKeys;
 }
 
-function minerCommandHandler(message, myWalletAddress) {
+function minerCommandHandler(message, myWalletAddress,peerPort) {
   if (message.startsWith("mine")) {
     blockChain.minePendingTransactions(myWalletAddress);
   } else if (message.startsWith("balance")) {
@@ -352,58 +355,19 @@ function minerCommandHandler(message, myWalletAddress) {
   } else if (message.startsWith("total coins")) {
     let total = blockChain.minedCoins() - blockChain.burnedCoins();
     log(chalk.yellow("Total coins in BlockCain = " + total));
-  }
-  if (message.startsWith("total mined coins")) {
+  } else if (message.startsWith("total mined coins")) {
     let total = blockChain.minedCoins();
     log(chalk.green("Total mined coins in BlockCain = " + total));
-  }
-  if (message === "help") {
+  } else if (message === "help") {
     info();
+  } else if (message === "autoMine"){
+    if(peerPort==="4001"){
+      console.log(chalk.yellow("we start mining!"))
+      autoMine(myWalletAddress)
+    }
   }
 }
 
-function info() {
-  log();
-  log();
-  log(chalk.underline.bold("welcome to help!:"));
-  log();
-  log(
-    chalk.bold.red("command 1 (only miner): ") + chalk.yellow.underline("mine")
-  );
-  log("manual do mining");
-  log();
-  log(chalk.bold.red("command 2: ") + chalk.yellow.underline("sent money"));
-  log("the syntax is to(port) and amount");
-  log("example 4001 500");
-  log();
-  log(chalk.bold.red("command 3: ") + chalk.yellow.underline("proof"));
-  log("check if the system has approved the transaction ");
-  log("(work only the last transaction)");
-  log();
-  log(
-    chalk.bold.red("command 4 (only miner): ") +
-      chalk.yellow.underline("balance")
-  );
-  log("The balance of all accounts");
-  log();
-  log(
-    chalk.bold.red("command 5 (only miner): ") +
-      chalk.yellow.underline("total mined coins")
-  );
-  log("all coins ever");
-  log();
-  log(
-    chalk.bold.red("command 6 (only miner): ") +
-      chalk.yellow.underline("total coins")
-  );
-  log("all coins in the system");
-  log();
-  log(
-    chalk.bold.red("command 7 (only miner): ") +
-      chalk.yellow.underline("total burned coins")
-  );
-  log("all coins that burned");
-}
 function balanceOFallPorts() {
   const address4000 = ec
     .keyFromPrivate(nodePrivateKeys.get("4000"))
@@ -429,4 +393,78 @@ function balanceOFallPorts() {
     chalk.yellow("4002: ") +
       chalk.green(blockChain.getBalanceOfAddress(address4002))
   );
+}
+
+function info() {
+  log();
+  log();
+  log(chalk.underline.bold("welcome to help!:"));
+  log();
+  log(
+    chalk.bold.red("command 1 (only miner): ") + chalk.yellow.underline("mine")
+  );
+  log("manual do mining");
+  log();
+  log(
+    chalk.bold.red("command 2 (only miner): ") + chalk.yellow.underline("autoMine")
+  );
+  log("start to automatic mining");
+  log();
+  log(chalk.bold.red("command 3: ") + chalk.yellow.underline("sent money"));
+  log("the syntax is to(port) and amount");
+  log("example 4001 500");
+  log();
+  log(chalk.bold.red("command 4: ") + chalk.yellow.underline("proof"));
+  log("check if the system has approved the transaction ");
+  log("(work only the last transaction)");
+  log();
+  log(
+    chalk.bold.red("command 5 (only miner): ") +
+      chalk.yellow.underline("balance")
+  );
+  log("The balance of all accounts");
+  log();
+  log(
+    chalk.bold.red("command 6 (only miner): ") +
+      chalk.yellow.underline("total mined coins")
+  );
+  log("all coins ever");
+  log();
+  log(
+    chalk.bold.red("command 7 (only miner): ") +
+      chalk.yellow.underline("total coins")
+  );
+  log("all coins in the system");
+  log();
+  log(
+    chalk.bold.red("command 8 (only miner): ") +
+      chalk.yellow.underline("total burned coins")
+  );
+  log("all coins that burned");
+}
+
+function approval(myAprove) {
+  log();
+  if (myAprove === "true") {
+    log(
+      chalk.green(
+        "The last transfer of currency to your account has been " +
+          chalk.green.underline("confirmed!")
+      )
+    );
+  } else {
+    log(
+      chalk.red(
+        "The last transfer of currency to your account has " +
+          chalk.red.underline("not yet") +
+          chalk.red(" been confirmed!")
+      )
+    );
+  }
+  log();
+}
+
+function autoMine(myWalletAddress,peerPort) {
+  minerCommandHandler("mine",myWalletAddress,peerPort);
+  setTimeout(autoMine, 5000, myWalletAddress,peerPort);
 }
