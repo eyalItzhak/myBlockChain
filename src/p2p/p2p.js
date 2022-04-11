@@ -466,5 +466,5 @@ function approval(myAprove) {
 
 function autoMine(myWalletAddress,peerPort) {
   minerCommandHandler("mine",myWalletAddress,peerPort);
-  setTimeout(autoMine, 5000, myWalletAddress,peerPort);
+  setTimeout(autoMine, 10000, myWalletAddress,peerPort);
 }
